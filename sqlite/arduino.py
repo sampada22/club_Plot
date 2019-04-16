@@ -1,9 +1,65 @@
+from __future__ import print_function
+import serial
 import time
 import math
 import matplotlib.pyplot as plt 
 import sqlite3
 from sqlite3 import Error
 
+def get_time_millis():
+	return (int(round(time.time() * 1000)))
+
+def get_time_seconds():
+	return (int(round(time.time() * 1000000)))
+
+class read_From_Arduino(object):
+	def __init__(self,port,SIZE_STRUCT = 6, verbose = 0):
+		self.port = port
+		self.millis = get_time_millis()
+		self.SIZE_STRUCT = SIZE_STRUCT
+		self.verbose = verbose
+		self.Data = -1
+		self.t_init = get_time_millis()
+		self.t = 0
+		
+		self.port.flushInput()
+	
+	def read_one_value(self):
+		read = False
+		while not read:
+			myByte = self.port.read(1)
+			print(myByte)
+			if myByte == b'S':
+				packed_data = self.port.read(self.SIZE_STRUCT)
+				myByte = self.port.read(1)
+				if myByte == b'E':
+					self.t = (get_time_millis() - self.t_init)/1000.0
+					unpacked_data = struct.unpack('<hhh',packed_data)
+					print(unpacked_data)
+					print(myByte)
+					current_time = get_time_millis()
+					time_elapsed = current_time - self.millis
+					self.millis = current_time
+
+					read = True
+
+					self.Data = np.array(unpacked_data)
+					return(True)
+				
+		return(False)
+		 
+
+	def get_X(self):
+		self.read_one_value()
+		return self.Data[0]
+
+	def get_Y(self):
+		self.read_one_value()
+		return self.Data[1]
+
+	def get_Yaw(self):
+		self.read_one_value()
+		return self.Data[2]
 
 def create_connection(db_file):
 	"""create conenction to the SQLite database:
@@ -97,10 +153,9 @@ def main():
 	while True:
 		now = time.time()
 		data_T = now - then
-		data_X = 10 * math.sin(i)
-		data_Y = 10 * math.cos(i)
-		data_Yaw = math.tan(i)
-		i += 0.25	
+		data_X = read_From_Arduino_Instance.get_X()
+		data_Y = read_From_Arduino_Instance.get_Y()
+		data_Yaw = read_From_Arduino_Instance.get_Yaw()
 		with conn:
 			data_Log = (int(data_T),int(data_X),int(data_Y),int(data_Yaw))
 			if flag == 0:
